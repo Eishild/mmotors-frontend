@@ -48,12 +48,12 @@ export const registerSchema = z.object({
     .string()
     .trim()
     .min(1, { error: "Le nom est requis." }),
-  /** Optionnel côté backend (`phone?`). Vide → undefined pour ne pas envoyer "". */
-  phone: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => (value === "" ? undefined : value)),
+  /**
+   * Optionnel côté backend (`phone?`). Pas de `.transform()` ici : un transform
+   * ferait diverger les types entrée/sortie du schéma et casserait le typage du
+   * resolver RHF. La normalisation « "" → undefined » se fait au submit.
+   */
+  phone: z.string().trim().optional(),
 });
 
 /** Types de formulaire dérivés des schémas (pas de redéclaration manuelle). */
