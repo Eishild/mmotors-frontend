@@ -7,7 +7,7 @@ export default function CatalogueSkeleton() {
           key={i}
           className="overflow-hidden rounded-xl border border-foreground/10"
         >
-          <div className="aspect-[4/3] animate-pulse bg-foreground/10" />
+          <div className="aspect-4/3 animate-pulse bg-foreground/10" />
           <div className="space-y-2 p-4">
             <div className="h-4 w-2/3 animate-pulse rounded bg-foreground/10" />
             <div className="h-3 w-1/2 animate-pulse rounded bg-foreground/10" />
@@ -16,5 +16,5 @@ export default function CatalogueSkeleton() {
         </div>
       ))}
     </div>
-  );
+  )
 }

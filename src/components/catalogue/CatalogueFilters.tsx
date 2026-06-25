@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 /**
  * Barre de filtres (Client Component).
@@ -11,52 +11,52 @@
  * réellement les inputs (un simple `defaultValue` ne se réapplique pas au reset).
  */
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, type FormEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useState, useTransition, type FormEvent } from "react"
 
 export default function CatalogueFilters() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
-  const [brand, setBrand] = useState(searchParams.get("brand") ?? "");
+  const [brand, setBrand] = useState(searchParams.get("brand") ?? "")
   const [purchaseType, setPurchaseType] = useState(
     searchParams.get("purchaseType") ?? "",
-  );
-  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "");
+  )
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "")
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const params = new URLSearchParams();
+    event.preventDefault()
+    const params = new URLSearchParams()
 
-    const trimmedBrand = brand.trim();
-    const trimmedMaxPrice = maxPrice.trim();
+    const trimmedBrand = brand.trim()
+    const trimmedMaxPrice = maxPrice.trim()
 
-    if (trimmedBrand) params.set("brand", trimmedBrand);
-    if (purchaseType) params.set("purchaseType", purchaseType);
-    if (trimmedMaxPrice) params.set("maxPrice", trimmedMaxPrice);
+    if (trimmedBrand) params.set("brand", trimmedBrand)
+    if (purchaseType) params.set("purchaseType", purchaseType)
+    if (trimmedMaxPrice) params.set("maxPrice", trimmedMaxPrice)
     // Tout changement de filtre ramène à la page 1 (on n'ajoute pas `page`).
 
-    const query = params.toString();
+    const query = params.toString()
     startTransition(() => {
-      router.push(query ? `${pathname}?${query}` : pathname);
-    });
+      router.push(query ? `${pathname}?${query}` : pathname)
+    })
   }
 
   function reset() {
-    setBrand("");
-    setPurchaseType("");
-    setMaxPrice("");
+    setBrand("")
+    setPurchaseType("")
+    setMaxPrice("")
     startTransition(() => {
-      router.push(pathname);
-    });
+      router.push(pathname)
+    })
   }
 
   return (
     <form
       onSubmit={applyFilters}
-      className="mb-8 grid grid-cols-1 gap-4 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
+      className="mb-8 grid grid-cols-1 gap-4 rounded-xl border border-foreground/10 bg-foreground/2 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
     >
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Marque</span>
@@ -116,5 +116,5 @@ export default function CatalogueFilters() {
         </button>
       </div>
     </form>
-  );
+  )
 }

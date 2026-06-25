@@ -3,24 +3,24 @@
  * Toute la carte est cliquable et mène à la fiche détaillée.
  */
 
-import Link from "next/link";
-import { formatMileage, formatPrice } from "@/lib/format";
-import type { Vehicle } from "@/lib/types";
+import Link from "next/link"
+import { formatMileage, formatPrice } from "@/lib/format"
+import type { Vehicle } from "@/lib/types"
 
 const PURCHASE_TYPE_LABEL: Record<Vehicle["purchaseType"], string> = {
   VENTE: "Vente",
   LOCATION: "Location",
-};
+}
 
 export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
-  const cover = vehicle.images[0];
+  const cover = vehicle.images[0]
 
   return (
     <Link
       href={`/vehicules/${vehicle.id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-foreground/10 bg-background transition-shadow hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-foreground/5">
+      <div className="relative aspect-4/3 overflow-hidden bg-foreground/5">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element -- URLs arbitraires : <img> évite la config remotePatterns de next/image.
           <img
@@ -63,5 +63,5 @@ export default function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
         </p>
       </div>
     </Link>
-  );
+  )
 }

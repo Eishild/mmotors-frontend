@@ -40,3 +40,14 @@ export function getVehicles(
     `/api/v1/vehicles${buildQuery(filters)}`,
   );
 }
+
+/**
+ * Récupère la fiche détaillée d'un véhicule. Ressource unique → enveloppe `{ data }`.
+ * Lève `ApiError` (status 404) si l'id est introuvable.
+ */
+export async function getVehicle(id: string): Promise<Vehicle> {
+  const { data } = await apiFetch<{ data: Vehicle }>(
+    `/api/v1/vehicles/${encodeURIComponent(id)}`,
+  );
+  return data;
+}
