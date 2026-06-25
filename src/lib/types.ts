@@ -4,6 +4,19 @@
  */
 
 export type Role = "CLIENT" | "GESTIONNAIRE" | "ADMIN";
+
+/** Utilisateur tel que renvoyé par le backend (le mot de passe n'est JAMAIS exposé). */
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  role: Role;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type FuelType = "ESSENCE" | "DIESEL" | "HYBRIDE" | "ELECTRIQUE";
 export type Transmission = "MANUELLE" | "AUTOMATIQUE";
 export type VehicleStatus = "DISPONIBLE" | "VENDU" | "LOUE" | "RESERVE";

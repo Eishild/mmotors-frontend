@@ -3,17 +3,14 @@
 /**
  * En-tête global + barre de navigation (Client Component).
  *
- * Client car il met en évidence le lien actif (`usePathname`) et gère le menu
- * mobile (state). La navigation reste de simples <Link> (rendu/route côté Next).
- *
- * NB : pas encore d'affichage conditionnel selon l'état connecté/déconnecté —
- * l'auth repose sur un cookie httpOnly et il n'existe ni `GET /auth/me` ni
- * AuthContext pour l'instant. À brancher ici quand ce contexte sera créé.
+ * Client car il met en évidence le lien actif (`usePathname`), gère le menu
+ * mobile (state) et l'état d'authentification via `useAuth()`.
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const NAV_LINKS = [
   { href: "/", label: "Accueil" },
@@ -22,10 +19,21 @@ const NAV_LINKS = [
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isLoading, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isStaff = user?.role === "GESTIONNAIRE" || user?.role === "ADMIN";
 
   function isActive(href: string): boolean {
     return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  }
+
+  async function handleLogout() {
+    setMobileOpen(false);
+    await logout();
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -54,18 +62,46 @@ export default function Header() {
 
         {/* Actions desktop */}
         <div className="hidden items-center gap-2 sm:flex">
-          <Link
-            href="/login"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
-          >
-            Connexion
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
-          >
-            Inscription
-          </Link>
+          {isLoading ? null : user ? (
+            <>
+              {isStaff && (
+                <Link
+                  href="/admin"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
+                >
+                  Back-office
+                </Link>
+              )}
+              <Link
+                href="/compte"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
+              >
+                {user.firstName}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
+              >
+                Déconnexion
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:text-foreground"
+              >
+                Connexion
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
+              >
+                Inscription
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Bouton menu mobile */}
@@ -104,20 +140,50 @@ export default function Header() {
             </Link>
           ))}
           <hr className="my-2 border-foreground/10" />
-          <Link
-            href="/login"
-            onClick={() => setMobileOpen(false)}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 hover:bg-foreground/5"
-          >
-            Connexion
-          </Link>
-          <Link
-            href="/register"
-            onClick={() => setMobileOpen(false)}
-            className="rounded-lg bg-foreground px-3 py-2 text-center text-sm font-medium text-background"
-          >
-            Inscription
-          </Link>
+          {isLoading ? null : user ? (
+            <>
+              {isStaff && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 hover:bg-foreground/5"
+                >
+                  Back-office
+                </Link>
+              )}
+              <Link
+                href="/compte"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 hover:bg-foreground/5"
+              >
+                Mon compte
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg bg-foreground px-3 py-2 text-center text-sm font-medium text-background"
+              >
+                Déconnexion
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/70 hover:bg-foreground/5"
+              >
+                Connexion
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg bg-foreground px-3 py-2 text-center text-sm font-medium text-background"
+              >
+                Inscription
+              </Link>
+            </>
+          )}
         </nav>
       )}
     </header>
