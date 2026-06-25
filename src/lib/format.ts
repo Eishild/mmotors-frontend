@@ -22,3 +22,16 @@ export function formatPrice(price: string | number): string {
 export function formatMileage(mileage: number): string {
   return `${numberFormatter.format(mileage)} km`;
 }
+
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
+/** Formate une date ISO en français (ex. "25 juin 2026"). Chaîne vide si invalide. */
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return dateFormatter.format(date);
+}

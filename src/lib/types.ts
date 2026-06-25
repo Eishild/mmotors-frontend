@@ -43,6 +43,94 @@ export interface Vehicle {
   updatedAt: string;
 }
 
+export type DossierType = "ACHAT" | "LOCATION";
+
+export type DossierStatus =
+  | "EN_ATTENTE_DOCUMENTS"
+  | "EN_COURS"
+  | "COMPLEMENT_DEMANDE"
+  | "VALIDE"
+  | "REFUSE";
+
+export type OptionType =
+  | "ASSURANCE_TOUS_RISQUES"
+  | "ASSISTANCE_DEPANNAGE"
+  | "ENTRETIEN_SAV"
+  | "CONTROLE_TECHNIQUE";
+
+/** Option d'un dossier de LOCATION (jamais sur un ACHAT). */
+export interface DossierOption {
+  id: string;
+  type: OptionType;
+  dossierId: string;
+  createdAt: string;
+}
+
+/**
+ * Pièce jointe d'un dossier. Nommé `DossierDocument` (et non `Document`) pour ne
+ * pas masquer le type global `Document` du DOM.
+ */
+export interface DossierDocument {
+  id: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  size: number;
+  dossierId: string;
+  uploadedAt: string;
+}
+
+export interface Dossier {
+  id: string;
+  type: DossierType;
+  status: DossierStatus;
+  /** Renseigné uniquement si `status === "REFUSE"`. */
+  refusalMotif: string | null;
+  clientId: string;
+  vehicleId: string;
+  /** Présentes uniquement pour les dossiers de LOCATION. */
+  options: DossierOption[];
+  documents: DossierDocument[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Vue « suivi client » d'un dossier, telle que renvoyée par `GET /dossiers/me`
+ * (US-007). Différente du `Dossier` générique : le backend inclut le véhicule et
+ * restreint les champs (options réduites à `{ type }`, documents sans `url` ni
+ * chemins de stockage internes).
+ */
+export interface ClientDossierVehicle {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+  images: string[];
+}
+
+export interface ClientDossierDocument {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
+export interface ClientDossier {
+  id: string;
+  type: DossierType;
+  status: DossierStatus;
+  refusalMotif: string | null;
+  clientId: string;
+  vehicleId: string;
+  createdAt: string;
+  updatedAt: string;
+  vehicle: ClientDossierVehicle;
+  options: { type: OptionType }[];
+  documents: ClientDossierDocument[];
+}
+
 /** Métadonnées de pagination renvoyées par les listes (`GET /vehicles`, `GET /dossiers`). */
 export interface Pagination {
   page: number;
