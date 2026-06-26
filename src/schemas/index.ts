@@ -3,5 +3,6 @@
  * Importer depuis `@/schemas` plutôt que des fichiers individuels.
  */
 
+export * from "./account";
 export * from "./auth";
 export * from "./vehicle";

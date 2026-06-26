@@ -1,6 +1,7 @@
 "use client";
 
 import RouteGuard from "@/components/auth/RouteGuard";
+import AccountSettings from "@/components/account/AccountSettings";
 import MyDossiersList from "@/components/dossiers/MyDossiersList";
 import { useAuth } from "@/context/AuthContext";
 
@@ -12,6 +13,11 @@ function CompteContent() {
       <p className="mt-2 text-foreground/70">
         Bienvenue {user?.firstName} {user?.lastName}.
       </p>
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-lg font-semibold">Mon compte</h2>
+        <AccountSettings />
+      </section>
 
       <section className="mt-8">
         <h2 className="mb-4 text-lg font-semibold">Mes dossiers</h2>

@@ -14,8 +14,8 @@
 
 import { z } from "zod";
 
-/** Règles mot de passe identiques au backend (réutilisées par register). */
-const passwordSchema = z
+/** Règles mot de passe identiques au backend (réutilisées par register + compte). */
+export const passwordSchema = z
   .string()
   .min(8, { error: "Le mot de passe doit contenir au moins 8 caractères." })
   .regex(/[a-z]/, { error: "Le mot de passe doit contenir une minuscule." })
