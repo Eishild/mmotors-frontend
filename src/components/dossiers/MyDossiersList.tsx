@@ -11,9 +11,20 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
-import { getMyDossiers, OPTION_LABELS } from "@/lib/dossiers";
-import { formatDate } from "@/lib/format";
-import type { ClientDossier, DossierStatus, DossierType } from "@/lib/types";
+import {
+  addDossierOptions,
+  getMyDossiers,
+  getOptionsCatalog,
+  OPTION_LABELS,
+} from "@/lib/dossiers";
+import { formatDate, formatPriceCents } from "@/lib/format";
+import type {
+  ClientDossier,
+  DossierStatus,
+  DossierType,
+  OptionType,
+  PricedOption,
+} from "@/lib/types";
 
 interface StatusMeta {
   label: string;
@@ -59,6 +70,9 @@ const TYPE_LABEL: Record<DossierType, string> = {
 export default function MyDossiersList() {
   const [dossiers, setDossiers] = useState<ClientDossier[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Catalogue tarifé partagé entre les cartes (prix + ajout d'options). Un échec
+  // ne casse pas l'affichage : on dégrade simplement la partie options.
+  const [catalog, setCatalog] = useState<PricedOption[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +88,13 @@ export default function MyDossiersList() {
               : "Impossible de charger vos dossiers.",
           );
         }
+      });
+    getOptionsCatalog()
+      .then((c) => {
+        if (active) setCatalog(c);
+      })
+      .catch(() => {
+        if (active) setCatalog([]);
       });
     return () => {
       active = false;
@@ -111,16 +132,78 @@ export default function MyDossiersList() {
   return (
     <ul className="flex flex-col gap-4">
       {dossiers.map((dossier) => (
-        <DossierCard key={dossier.id} dossier={dossier} />
+        <DossierCard key={dossier.id} dossier={dossier} catalog={catalog} />
       ))}
     </ul>
   );
 }
 
-function DossierCard({ dossier }: { dossier: ClientDossier }) {
+function DossierCard({
+  dossier,
+  catalog,
+}: {
+  dossier: ClientDossier;
+  catalog: PricedOption[] | null;
+}) {
   const status = STATUS_META[dossier.status];
   const { vehicle } = dossier;
   const thumbnail = vehicle.images[0];
+
+  // Copie locale des options pour refléter un ajout sans recharger toute la liste.
+  const [optionTypes, setOptionTypes] = useState<OptionType[]>(() =>
+    dossier.options.map((o) => o.type),
+  );
+  const [serverMonthly, setServerMonthly] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [selection, setSelection] = useState<OptionType[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const isLocation = dossier.type === "LOCATION";
+  const finalized = dossier.status === "VALIDE" || dossier.status === "REFUSE";
+  const canAddOptions = isLocation && !finalized;
+
+  // Options du catalogue pas encore présentes sur le dossier.
+  const available = (catalog ?? []).filter((o) => !optionTypes.includes(o.type));
+
+  // Total mensuel : valeur serveur après un ajout, sinon recalculée localement
+  // depuis le catalogue (affichage seulement ; le serveur reste la référence).
+  const monthlyTotal =
+    serverMonthly ??
+    (catalog
+      ? String(
+          catalog
+            .filter((o) => optionTypes.includes(o.type))
+            .reduce((sum, o) => sum + Number(o.monthlyPrice), 0),
+        )
+      : null);
+
+  function toggleSelect(type: OptionType) {
+    setSelection((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  }
+
+  async function submitOptions() {
+    if (selection.length === 0) return;
+    setSaving(true);
+    setAddError(null);
+    try {
+      const updated = await addDossierOptions(dossier.id, selection);
+      setOptionTypes(updated.options.map((o) => o.type));
+      setServerMonthly(updated.monthlyOptionsTotal);
+      setSelection([]);
+      setAdding(false);
+    } catch (err) {
+      setAddError(
+        err instanceof ApiError
+          ? err.message
+          : "Impossible d'ajouter les options.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <li className="flex flex-col gap-4 rounded-xl border border-foreground/10 p-4 sm:flex-row">
@@ -166,11 +249,81 @@ function DossierCard({ dossier }: { dossier: ClientDossier }) {
           </p>
         )}
 
-        {dossier.options.length > 0 && (
-          <p className="mt-2 text-xs text-foreground/60">
-            Options :{" "}
-            {dossier.options.map((o) => OPTION_LABELS[o.type]).join(", ")}
-          </p>
+        {isLocation && (
+          <div className="mt-2">
+            {optionTypes.length > 0 ? (
+              <p className="text-xs text-foreground/60">
+                Options : {optionTypes.map((t) => OPTION_LABELS[t]).join(", ")}
+                {monthlyTotal && Number(monthlyTotal) > 0 && (
+                  <> — {formatPriceCents(monthlyTotal)} / mois</>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-foreground/50">Aucune option.</p>
+            )}
+
+            {canAddOptions && available.length > 0 && (
+              <div className="mt-1">
+                {!adding ? (
+                  <button
+                    type="button"
+                    onClick={() => setAdding(true)}
+                    className="text-xs font-medium text-blue-700 hover:underline"
+                  >
+                    + Ajouter des options
+                  </button>
+                ) : (
+                  <div className="mt-1 rounded-lg border border-foreground/10 p-3">
+                    <div className="flex flex-col gap-1">
+                      {available.map((opt) => (
+                        <label
+                          key={opt.type}
+                          className="flex items-center justify-between gap-3 text-sm"
+                        >
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selection.includes(opt.type)}
+                              onChange={() => toggleSelect(opt.type)}
+                              className="h-4 w-4"
+                            />
+                            {opt.label}
+                          </span>
+                          <span className="shrink-0 text-foreground/60">
+                            {formatPriceCents(opt.monthlyPrice)} / mois
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {addError && (
+                      <p className="mt-2 text-xs text-red-600">{addError}</p>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={submitOptions}
+                        disabled={saving || selection.length === 0}
+                        className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+                      >
+                        {saving ? "Ajout…" : "Valider les options"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdding(false);
+                          setSelection([]);
+                          setAddError(null);
+                        }}
+                        className="px-3 py-1.5 text-xs font-medium text-foreground/60 hover:text-foreground"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </li>

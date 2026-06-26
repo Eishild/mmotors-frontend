@@ -18,6 +18,23 @@ export function formatPrice(price: string | number): string {
   return priceFormatter.format(value);
 }
 
+const preciseFormatter = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Comme `formatPrice` mais avec les centimes (ex. "49,90 €"). À utiliser pour les
+ * petits montants où l'arrondi à l'euro fausserait l'affichage (prix d'options).
+ */
+export function formatPriceCents(price: string | number): string {
+  const value = typeof price === "number" ? price : Number(price);
+  if (Number.isNaN(value)) return "";
+  return preciseFormatter.format(value);
+}
+
 /** Formate un kilométrage : `120000` → "120 000 km". */
 export function formatMileage(mileage: number): string {
   return `${numberFormatter.format(mileage)} km`;

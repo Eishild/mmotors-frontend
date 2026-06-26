@@ -66,6 +66,33 @@ export interface DossierOption {
   createdAt: string;
 }
 
+/** Option tarifée telle qu'exposée par `GET /dossiers/options/catalog` (US-006). */
+export interface PricedOption {
+  type: OptionType;
+  label: string;
+  /** Prix mensuel en euros (Decimal sérialisé en string, ex. "49.90"). */
+  monthlyPrice: string;
+}
+
+/**
+ * Dossier renvoyé par `POST /dossiers/:id/options` : options à jour + détail
+ * tarifaire (prix par option et total mensuel, calculés et garantis côté serveur).
+ */
+export interface DossierWithPricedOptions {
+  id: string;
+  type: DossierType;
+  status: DossierStatus;
+  refusalMotif: string | null;
+  clientId: string;
+  vehicleId: string;
+  createdAt: string;
+  updatedAt: string;
+  options: DossierOption[];
+  pricedOptions: PricedOption[];
+  /** Total mensuel des options (Decimal sérialisé en string). */
+  monthlyOptionsTotal: string;
+}
+
 /**
  * Pièce jointe d'un dossier. Nommé `DossierDocument` (et non `Document`) pour ne
  * pas masquer le type global `Document` du DOM.
@@ -129,6 +156,72 @@ export interface ClientDossier {
   vehicle: ClientDossierVehicle;
   options: { type: OptionType }[];
   documents: ClientDossierDocument[];
+}
+
+/**
+ * Vue « back-office » d'un dossier, telle que renvoyée par `GET /dossiers` et
+ * `PATCH /dossiers/:id/status` (US-010/011). Inclut le client et le véhicule
+ * (champs réduits) + le nombre de documents ; pas d'URL de pièces ici.
+ */
+export interface StaffDossierClient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export interface StaffDossierVehicle {
+  id: string;
+  brand: string;
+  model: string;
+  year: number;
+}
+
+export interface StaffDossier {
+  id: string;
+  type: DossierType;
+  status: DossierStatus;
+  refusalMotif: string | null;
+  clientId: string;
+  vehicleId: string;
+  createdAt: string;
+  updatedAt: string;
+  client: StaffDossierClient;
+  vehicle: StaffDossierVehicle;
+  options: { type: OptionType }[];
+  _count: { documents: number };
+}
+
+/**
+ * Pièce jointe telle que renvoyée par `GET /dossiers/:id` : métadonnées + URL
+ * signée éphémère (60 s) pour visualiser/télécharger. Pas de chemin de stockage.
+ */
+export interface DossierDetailDocument {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  signedUrl: string;
+}
+
+/**
+ * Détail complet d'un dossier (`GET /dossiers/:id`) : ouverture depuis le
+ * back-office (ou par le client propriétaire), avec les documents accessibles.
+ */
+export interface DossierDetail {
+  id: string;
+  type: DossierType;
+  status: DossierStatus;
+  refusalMotif: string | null;
+  clientId: string;
+  vehicleId: string;
+  createdAt: string;
+  updatedAt: string;
+  client: StaffDossierClient;
+  vehicle: StaffDossierVehicle;
+  options: { type: OptionType }[];
+  documents: DossierDetailDocument[];
 }
 
 /** Métadonnées de pagination renvoyées par les listes (`GET /vehicles`, `GET /dossiers`). */

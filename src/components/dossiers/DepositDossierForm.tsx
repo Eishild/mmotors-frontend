@@ -18,16 +18,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import {
+  addDossierOptions,
   createDossier,
-  OPTION_LABELS,
+  getOptionsCatalog,
   uploadDossierDocument,
   validateDocument,
 } from "@/lib/dossiers";
-import { formatPrice } from "@/lib/format";
-import type { DossierType, OptionType, Vehicle } from "@/lib/types";
+import { formatPrice, formatPriceCents } from "@/lib/format";
+import type { OptionType, PricedOption, Vehicle, DossierType } from "@/lib/types";
 import { getVehicle } from "@/lib/vehicles";
-
-const OPTION_TYPES = Object.keys(OPTION_LABELS) as OptionType[];
 
 /** Traduit une erreur API en message affichable. */
 function messageFor(error: unknown): string {
@@ -48,6 +47,10 @@ interface SubmitResult {
   total: number;
   /** Noms des documents dont l'upload a échoué (le dossier, lui, est créé). */
   failed: string[];
+  /** Total mensuel des options validées (string Decimal), ou null si aucune. */
+  monthlyOptionsTotal: string | null;
+  /** true si l'enregistrement des options a échoué (le dossier reste créé). */
+  optionsFailed: boolean;
 }
 
 export default function DepositDossierForm({
@@ -60,6 +63,8 @@ export default function DepositDossierForm({
   const [loadingVehicle, setLoadingVehicle] = useState(true);
 
   const [options, setOptions] = useState<OptionType[]>([]);
+  const [catalog, setCatalog] = useState<PricedOption[] | null>(null);
+  const [catalogError, setCatalogError] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [fileNotice, setFileNotice] = useState<string | null>(null);
 
@@ -90,6 +95,25 @@ export default function DepositDossierForm({
     };
   }, [vehicleId]);
 
+  // Catalogue des options (public). Chargé en parallèle du véhicule ; un échec
+  // ne bloque pas le dépôt (on dégrade simplement la section options).
+  useEffect(() => {
+    let active = true;
+    getOptionsCatalog()
+      .then((c) => {
+        if (active) setCatalog(c);
+      })
+      .catch(() => {
+        if (active) {
+          setCatalog([]);
+          setCatalogError(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (loadingVehicle) {
     return <p className="mt-6 text-sm text-foreground/60">Chargement du véhicule…</p>;
   }
@@ -110,6 +134,11 @@ export default function DepositDossierForm({
   const isLocation = vehicle.purchaseType === "LOCATION";
   const type: DossierType = isLocation ? "LOCATION" : "ACHAT";
 
+  // Total mensuel live des options cochées (le serveur fait foi à la validation).
+  const monthlyOptionsTotal = (catalog ?? [])
+    .filter((opt) => options.includes(opt.type))
+    .reduce((sum, opt) => sum + Number(opt.monthlyPrice), 0);
+
   // ----- Écran de confirmation -----
   if (result) {
     return (
@@ -122,6 +151,17 @@ export default function DepositDossierForm({
             ? `${result.total} document(s) transmis. Votre dossier est en attente d'instruction.`
             : `Dossier créé, mais ${result.failed.length} document(s) n'ont pas pu être envoyés : ${result.failed.join(", ")}. Vous pourrez les renvoyer depuis le suivi de vos dossiers.`}
         </p>
+        {result.monthlyOptionsTotal && (
+          <p className="mt-1 text-sm text-foreground/70">
+            Options : {formatPriceCents(result.monthlyOptionsTotal)} / mois.
+          </p>
+        )}
+        {result.optionsFailed && (
+          <p className="mt-1 text-sm text-amber-600">
+            Vos options n&apos;ont pas pu être enregistrées. Vous pourrez les
+            ajouter depuis le suivi de vos dossiers.
+          </p>
+        )}
         <div className="mt-4 flex gap-3">
           <Link
             href="/compte"
@@ -181,11 +221,22 @@ export default function DepositDossierForm({
 
     setSubmitting(true);
     try {
-      const dossier = await createDossier({
-        vehicleId: vehicle!.id,
-        type,
-        options: isLocation && options.length ? options : undefined,
-      });
+      // Le dossier est créé SANS options ; celles-ci sont validées juste après
+      // via POST /:id/options (réponse serveur = total mensuel garanti).
+      const dossier = await createDossier({ vehicleId: vehicle!.id, type });
+
+      let monthlyTotal: string | null = null;
+      let optionsFailed = false;
+      if (isLocation && options.length) {
+        try {
+          const priced = await addDossierOptions(dossier.id, options);
+          monthlyTotal = priced.monthlyOptionsTotal;
+        } catch {
+          // Le dossier reste créé : on signale l'échec, l'ajout reste possible
+          // depuis le suivi des dossiers.
+          optionsFailed = true;
+        }
+      }
 
       // Upload séquentiel : 1 fichier par requête. Une erreur sur un fichier
       // n'annule pas le dossier (déjà créé) → on collecte les échecs.
@@ -198,7 +249,13 @@ export default function DepositDossierForm({
         }
       }
 
-      setResult({ dossierId: dossier.id, total: files.length, failed });
+      setResult({
+        dossierId: dossier.id,
+        total: files.length,
+        failed,
+        monthlyOptionsTotal: monthlyTotal,
+        optionsFailed,
+      });
     } catch (error) {
       setRootError(messageFor(error));
     } finally {
@@ -225,20 +282,43 @@ export default function DepositDossierForm({
       {/* Options (LOCATION uniquement) */}
       {isLocation && (
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">
-            Options (facultatif)
-          </legend>
-          {OPTION_TYPES.map((option) => (
-            <label key={option} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={options.includes(option)}
-                onChange={() => toggleOption(option)}
-                className="h-4 w-4"
-              />
-              {OPTION_LABELS[option]}
-            </label>
-          ))}
+          <legend className="text-sm font-medium">Options (facultatif)</legend>
+          {catalog === null ? (
+            <p className="text-sm text-foreground/60">Chargement des options…</p>
+          ) : catalogError ? (
+            <p className="text-sm text-amber-600">
+              Options momentanément indisponibles. Vous pourrez les ajouter depuis
+              le suivi de vos dossiers.
+            </p>
+          ) : (
+            <>
+              {catalog.map((opt) => (
+                <label
+                  key={opt.type}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={options.includes(opt.type)}
+                      onChange={() => toggleOption(opt.type)}
+                      className="h-4 w-4"
+                    />
+                    {opt.label}
+                  </span>
+                  <span className="shrink-0 text-foreground/60">
+                    {formatPriceCents(opt.monthlyPrice)} / mois
+                  </span>
+                </label>
+              ))}
+              {options.length > 0 && (
+                <p className="mt-1 flex items-center justify-between border-t border-foreground/10 pt-2 text-sm font-medium">
+                  <span>Total options</span>
+                  <span>{formatPriceCents(monthlyOptionsTotal)} / mois</span>
+                </p>
+              )}
+            </>
+          )}
         </fieldset>
       )}
 
